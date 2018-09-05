@@ -2,7 +2,8 @@
 
 ---
 > 
->The project based on 
+當土豆=羅伯特遇見OpenCV就好像多了一把屠龍刀(too-long knife/Dragon Slayer)! 
+
 > 
 ## Dependencies
 - [QT5](https://github.com/qt/qt5)
