@@ -13,3 +13,7 @@ for share library output path, add "DESTDIR = lib" into .pro
 - [QT5](https://github.com/qt/qt5)
 - [PIXY2](https://github.com/charmedlabs/pixy2)
 - [libUSB](https://github.com/libusb/libusb)
+
+## Log
+- qt_chirp OK!
+- qt_getimage failed on getting cam_getFrame response, return -3!
