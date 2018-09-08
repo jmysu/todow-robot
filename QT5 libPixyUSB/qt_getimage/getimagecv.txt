@@ -1,0 +1,330 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+#include <string.h>
+#include <math.h>
+#include <pixy.h>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/opencv.hpp>
+#include <opencv/cv.h>
+#include <opencv/highgui.h>
+#include <ctime>
+#include <iostream>
+#include <sstream>
+#include <cerrno>
+// I put this include because I saw some guy telling to use this lib for the management of
+// argv[2] but during my tests I found that it is actually not needed. I leave it here
+// in case my tests where not complete enough.
+#if 0
+    #include <limits>
+#endif
+
+// Maximum number of pictures to be taken
+#define NB_PICT_MAX 30
+
+// INSTRUCTION TO COMPILE AFTER INSTALLING OPENCV AND PIXY AS EXPLAINED ON THE WEBSITES OF THESE LIBRARIES:
+// g++ -I/usr/include/libusb-1.0/  -I/usr/local/include -L/usr/local/lib/ `pkg-config --cflags --libs opencv` snapshot.cpp -o snapshot -Wall -lpixyusb -lusb-1.0 -lboost_system -lboost_thread -lboost_date_time -lboost_chrono
+// The program has been compiled in the following folder. Modifications might be required if you want to compile it in another folder.
+// /home/pi/pixy/src/host
+
+// SYSTEM INFO
+// g++ --version
+// g++ (Raspbian 4.9.2-10) 4.9.2
+
+// Libraries openCV and Pixy installed from my home folder
+// /home/pi/opencv
+// /home/pi/pixy
+
+// COMMAND TO LAUNCH THE PROGRAM
+// sudo ./snapshot genericNameForPictures nbOfPicturesToBeTaken
+
+using namespace std;
+
+
+
+int main(int argc, char * argv[])
+{
+    int pixy_init_status;
+    int return_value;
+    int i;
+    int nbPict;
+    long conv;
+    char *p;
+    int32_t response;
+    Mat image;
+    string fileName;
+    // Path where to save images
+    string path("/home/pi/pixy/calib/");
+    // Extension to use to save images (check openCV imwrite() function to learn more)
+    string fileExtension(".png");
+    string genericName;
+    stringstream number;
+
+    errno = 0;
+
+    // Check that there are the right number of arguments (1 generic name to save the pictures and the number of pictures to take)
+    if (argc < 3)
+    {
+
+        // Display an error message and stop the program
+        cout << "Not enough input arguments. First argument is the generic name of the pictures (without parth or extension) and the second argument is the number of pictures to be taken." << endl;
+        return 1;
+
+    } else
+    {
+        // Store the arguments into variables
+        genericName = argv[1];
+        conv = strtol(argv[2], &p, 10);
+
+    }
+
+    // Check for errors: e.g., the string is not empty or the integer is larger than NB_PICT_MAX
+    if (errno != 0 || *p != '\0' || conv > NB_PICT_MAX || conv == 0)
+    {
+
+        // Display error message
+        cout << "Second argument must be an integer between 1 and " << NB_PICT_MAX << endl;
+        return 2;
+
+    } else
+    {
+
+        // No error: save number of pictures to take inside an integer (nbPict)
+        nbPict = conv;
+        cout << "The program will take and save " << nbPict << " pictures." << endl;
+
+    }
+
+    // Initilize Pixy
+    pixy_init_status = pixy_init();
+
+    if(!pixy_init_status == 0)
+    {
+
+        printf("pixy_init(): ");
+        pixy_error(pixy_init_status);
+        return pixy_init_status;
+
+    }
+    cout << "Init Pixy..." << endl;
+
+    // Stop the Pixy
+    return_value = pixy_command("stop", END_OUT_ARGS, &response, END_IN_ARGS);
+    if(return_value != 0)
+    {
+        cout << "Can not stop Pixy" << endl;
+        return return_value;
+    }
+    //cout << "Stop Pixy: " << return_value << endl;
+
+    // Loop from 1 to nbPict
+    for(i=1; i<=nbPict; i++)
+    {
+        // Generate the name for the picture to be taken and then saved
+        number.str("");
+        number << i;
+        fileName = path + genericName + number.str() + fileExtension;
+
+        // Take a picture with Pixy and put it in the required form to be displayed/saved
+        image = getImage();
+
+        // Check that Pixy actually sent an image
+        if( image.empty() == 1)
+        {
+
+            cout << "No image received from Pixy" << endl;
+            return 3;
+
+        }
+
+        // Display the image and wait for the user to press any key
+        namedWindow( "Snapshot", WINDOW_AUTOSIZE );
+        imshow("Snapshot", image);
+        waitKey(0);
+
+        // Save the image
+        try
+        {
+
+            imwrite(fileName, image);
+
+        }
+        catch (runtime_error& ex)
+        {
+
+            fprintf(stderr, "Exception converting image to PNG format: %s\n", ex.what());
+            return 4;
+
+        }
+
+        // Message to tell the user that the picture has been saved
+        cout << "Successfully saved " << fileName << " file." << endl;
+
+    }
+
+    return 0;
+}
+
+Mat getImage()
+{
+    // Asks Pixy to send an image and gives this image to renderBA81
+    unsigned char *pixels;
+    int32_t response, fourcc;
+    int8_t renderflags;
+    int return_value;
+    uint16_t rwidth, rheight;
+    uint32_t  numPixels;
+    Mat image;
+    char fourcc_code[5];
+
+    // Runs the Pixy to make it put a frame inside its video buffer
+    return_value = pixy_command("run", END_OUT_ARGS, &response, END_IN_ARGS);
+    if(return_value != 0)
+    {
+
+        cout << "Can run stop Pixy. Returned value : " << return_value << endl;
+        return image;
+
+    }
+    //cout << "Run Pixy getImage: " << return_value << endl;
+
+    // Stops the Pixy before asking it to send the frame stored inside its video buffer
+    return_value = pixy_command("stop", END_OUT_ARGS, &response, END_IN_ARGS);
+    if(return_value != 0)
+    {
+
+        cout << "Can not stop Pixy. Returned value : " << return_value << endl;
+        return image;
+
+    }
+    //cout << "Stop Pixy getImage: " << return_value << endl;
+
+    // Asks the Pixy to send a frame
+    return_value = pixy_command("cam_getFrame",  // String id for remote procedure
+                                 /* Mx, or "mode x" where x is either:
+                                    0: full resolution mode (1280x800) at 25 frames/sec
+                                    1: quarter resolution mode (640x400) at 50 frames/sec -- the imager bins/averages the pixels
+
+                                    Ry, or "resolution y" where y is either:
+                                    0: 1280x800 resolution no pixel binning/averaging
+                                    1: 640x400 resolution no pixel binning/averaging (only available in mode 1)
+                                    2: 320x200 resolution with pixel binning/averaging (also only available in mode 1) */
+                                 // mode: CAM_GRAB_M0R0 (0x00), CAM_GRAB_M1R1 (0x11), CAM_GRAB_M1R2 (0x21)
+                                 0x01, 0x11,
+                                 0x02, 155,        // xoffset
+                                 0x02, 90,         // yoffset
+                                 // Memory size = 73728 bytes (72K) so width * height must be lower or equel to this
+                                 0x02, 330,       // width
+                                 0x02, 220,       // height
+                                 0,            // separator
+                                 &response, &fourcc, &renderflags, &rwidth, &rheight, &numPixels, &pixels, 0);
+
+    // Check that the Pixy successfully returned a frame
+    if(return_value != 0)
+    {
+
+        cout << "Can not get frame from Pixy. Returned value : " << return_value << endl;
+        return image;
+
+    }
+
+    // Convert fourcc code into string
+    fourcc_code[0] = fourcc & 0xff;
+    fourcc_code[1] = (fourcc >> 8) & 0xff;
+    fourcc_code[2] = (fourcc >> 16) & 0xff;
+    fourcc_code[3] = (fourcc >> 24) & 0xff;
+    fourcc_code[4] = '\0';
+
+    // Display the different values returned by the Pixy
+    //cout << "Cam_GetFrame Pixy: " << return_value << endl;
+    cout << "Response returned by Pixy : " << response << ", fourcc : " << fourcc_code << ", renderflags : " << renderflags << ", width : " << rwidth << ", height : " << rheight << ", numPixels : " << numPixels << endl;
+
+    // Render frame sent by Pixy
+    image = renderBA81(renderflags,rwidth,rheight,numPixels,pixels);
+
+    return image;
+}
+
+inline void interpolateBayer(uint16_t width, uint16_t x, uint16_t y, uint8_t *pixel, uint8_t* r, uint8_t* g, uint8_t* b)
+{
+    // Smear the pixel depending on parity on abscissa and ordinate (parity gives color -> see Bayer matrix for more info about it)
+    if (y&1)
+    {
+        if (x&1)
+        {
+            *r = *pixel;
+            *g = (*(pixel-1)+*(pixel+1)+*(pixel+width)+*(pixel-width))>>2;
+            *b = (*(pixel-width-1)+*(pixel-width+1)+*(pixel+width-1)+*(pixel+width+1))>>2;
+        }
+        else
+        {
+            *r = (*(pixel-1)+*(pixel+1))>>1;
+            *g = *pixel;
+            *b = (*(pixel-width)+*(pixel+width))>>1;
+        }
+    }
+    else
+    {
+        if (x&1)
+        {
+            *r = (*(pixel-width)+*(pixel+width))>>1;
+            *g = *pixel;
+            *b = (*(pixel-1)+*(pixel+1))>>1;
+        }
+        else
+        {
+            *r = (*(pixel-width-1)+*(pixel-width+1)+*(pixel+width-1)+*(pixel+width+1))>>2;
+            *g = (*(pixel-1)+*(pixel+1)+*(pixel+width)+*(pixel-width))>>2;
+            *b = *pixel;
+        }
+    }
+
+}
+
+Mat renderBA81(uint8_t renderFlags, uint16_t width, uint16_t height, uint32_t frameLen, uint8_t *frame)
+{
+    // Receives a frame, call the interpolateBayer function on every pixel of the frame expect for the pixels on the borders (left, right, top and bottom).
+    // Data as the folling size : frame_width-2 x frame_height-2
+    uint16_t x, y;
+    uint8_t r, g, b;
+    Mat imageRGB;
+    Mat imageBGR;
+    uchar data[3*((height-2)*(width-2))];
+    uint m = 0;
+
+    // Skip first line
+    frame += width;
+
+    // Take each pixel of the frame and perform on it the Bayer interpolation and save the obtained Red, Blue and Green pixels into data.
+    for (y=1; y<height-1; y++)
+    {
+
+        frame++;
+        for (x=1; x<width-1; x++, frame++)
+        {
+
+            interpolateBayer(width, x, y, frame, &r, &g, &b);
+            // RGB order and conversion to BGR because of memory corruption if directly wrote into BGR and returned. Can't fix the problem in another way.
+            // N.B.: BGR because it is default format for openCV
+            data[m++] = r;
+            data[m++] = g;
+            data[m++] = b;
+
+        }
+
+        frame++;
+
+    }
+
+    // "Cast" data to cv::Mat
+    imageRGB =  Mat(height - 2,width -2, CV_8UC3, data);
+
+    // Convert matrix from RGB to BGR
+    cvtColor (imageRGB,imageBGR,CV_RGB2BGR);
+
+    return imageBGR;
+}
+
