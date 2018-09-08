@@ -2,8 +2,8 @@
 
 ---
 > 
-當土豆=羅伯特遇見OpenCV就好像多了一把屠龍刀(too-long knife/Dragon Slayer)! 
-
+當土豆=羅伯特 遇見OpenCV 就好像遇見了一把屠龍刀(too-long-knife? or Dragon-Slayer?)! 
+  
 > 
 ## Dependencies
 - [QT5](https://github.com/qt/qt5)
