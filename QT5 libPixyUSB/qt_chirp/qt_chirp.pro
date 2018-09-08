@@ -18,9 +18,9 @@ SOURCES += \
     chirp_command.cpp
 
 INCLUDEPATH += ../common/inc
-INCLUDEPATH += ../libPixyUSB2/include
+INCLUDEPATH += ../libPixyUSB2.QT5/include
 INCLUDEPATH += ../arduino/libraries/Pixy2
-LIBS += -L../libPixyUSB2/build/debug -llibPixyUSB2
+LIBS += -L../libPixyUSB2.QT5/lib -lPixyUSB2
 
 macx {
     #ICON = pixy.icns

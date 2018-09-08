@@ -47,98 +47,43 @@ int main()
   {
     Result = pixy.init();
 
-    if (Result < 0)
-    {
-      printf ("Error\n");
-      printf ("pixy.init() returned %d\n", Result);
-      return Result;
-    }
-
-    printf ("Success\n");
-  }
-
-  // Get Pixy2 Version information //
-  {
-    Result = pixy.getVersion();
-
-    if (Result < 0)
-    {
-      printf ("pixy.getVersion() returned %d\n", Result);
-      return Result;
-    }
-
-    pixy.version->print();
-  }
-
-
-  printf ("Hit <CTRL+C> to exit...\n");
-  
-  {
-    uint8_t   Purple_Color      = 0xFF;
-    uint8_t   Green_Color       = 0x00;
-    bool      Green_Increasing  = true;
-    uint32_t  Color;
-   
-    // Exit on <CTRL+C> signal //
-    while (run_flag)
-    {
-
-      // Set LED using "led_set" chirp command
-      //
-      // Input is 32 bit unsigned: 00RRGGBB (hex)
-      // RR : 8-bit Red component
-      // GG : 8-bit Green component
-      // BB : 8-bit Blue component
-      pixy.m_link.callChirp("led_set", INT32(Color), END_OUT_ARGS, &Result, END_IN_ARGS);
-      usleep(30000); //30ms
-
-      if (Green_Color == 0xFF)
-          pixy.m_link.callChirp("led_setLamp", INT32(1), END_OUT_ARGS, &Result, END_IN_ARGS);
-      else
-          pixy.m_link.callChirp("led_setLamp", INT32(0), END_OUT_ARGS, &Result, END_IN_ARGS);
-
-      if (Result)
-      {
-        printf ("callChirp() Error: %d\n", Result);
+    if (Result < 0) {
+        printf ("Error\n");
+        printf ("pixy.init() returned %d\n", Result);
         return Result;
-      }
-
-      // Update color value //
-      if (Green_Increasing)
-      {
-        // Green is increasing //
-
-        if (Green_Color == 0xFF)
-        {
-          // Green is maxed out //
-          Green_Increasing = false;
-         }
-        else
-        {
-          Green_Color  += COLOR_STEP_VALUE;
-          Purple_Color -= COLOR_STEP_VALUE;
         }
-      }
-      else
-      {
-        // Purple is increasing //
-
-        if (Purple_Color == 0xFF)
-        {
-          // Purple is maxed out //
-          Green_Increasing = true;
+    printf ("Success\n");
         }
-        else
-        {
-          Green_Color  -= COLOR_STEP_VALUE;
-          Purple_Color += COLOR_STEP_VALUE;
-        }
-      }
 
-      // Create 32-bit RGB color value //
-      Color = (Purple_Color << 16) + (Green_Color << 8) + Purple_Color;
-    }
-  }
+
+
+    // Get Pixy2 Version information //
+    Result = pixy.getVersion();
+    if (Result < 0) {
+        printf ("pixy.getVersion() returned %d\n", Result);
+        return Result;
+        }
+    pixy.version->print();
+
+
+    // Get F/W H/W Version---------------------
+    uint16_t  *pixy_version;
+    uint16_t  v[6];
+    uint32_t  version_length;
+    uint32_t  response;
+    int iReturn = pixy.m_link.callChirp("version", END_OUT_ARGS, &response, &version_length, &pixy_version,  END_IN_ARGS);
+    if (iReturn >= 0) {
+        memcpy((void *)v,  pixy_version, 6 * sizeof(uint16_t));
+        printf("Version F/W:%u.%u.%u  H/W:%u.%u.%u\n", v[0],v[1],v[2], v[3],v[4],v[5]);
+        }
+
+    //Set Lamp 1,1
+    iReturn = pixy.m_link.callChirp("led_setLamp", INT8(1), INT8(1), END_OUT_ARGS, &Result, END_IN_ARGS);
+    sleep(1);
+    //Set Lamp 0,1
+    iReturn = pixy.m_link.callChirp("led_setLamp", INT8(0), INT8(1), END_OUT_ARGS, &Result, END_IN_ARGS);
+    sleep(1);
+
 
   printf ("PIXY2 Chirp Command Demo Exit\n");
 }
